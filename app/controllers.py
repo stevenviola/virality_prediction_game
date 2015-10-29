@@ -148,10 +148,10 @@ def get_current_images(cookies, current_question=None):
     current_uuid =  get_uuid_from_cookie(cookies)
     subreddit = get_current_subreddit(cookies)
 
-    mc = pylibmc.Client(["127.0.0.1"], binary=True, behaviors={"tcp_nodelay": True, "ketama": True})
+    mc = pylibmc.Client(["127.0.0.1"], binary=True)
 
-
-    current_images = mc.get(current_uuid+'_images')
+    uuid = str("%s_images" % current_uuid)
+    current_images = mc.get(uuid)
     if current_images is None:
         current_images = setup_images(current_uuid, subreddit, current_score['num_questions'])
 
@@ -426,9 +426,9 @@ def setup_images(current_uuid, subreddit, num_questions):
 
     image_classes = []
 
-    query_1 = Post.query.filter(Post.year_posted==2014, Post.show_to_users=='t', Post.subreddit==subreddit)
+    query_1 = Post.query.filter(Post.year_posted==2014, Post.subreddit==subreddit)
     for t in thresholds:
-        temp_images = query_1.filter(Post.score >= t[0], Post.score <= t[1]).order_by(db.func.random())
+        temp_images = query_1.filter(Post.score >= t[0], Post.score <= t[1]).order_by(db.func.rand())
         image_classes.append(temp_images)
 
     indices = [0]*len(thresholds)
@@ -438,20 +438,20 @@ def setup_images(current_uuid, subreddit, num_questions):
         second_threshold = choice(np.arange(len(thresholds)), p=weights)
 
         first_index = indices[first_threshold]
-        first_image = image_classes[first_threshold].offset(first_index).first()
+        first_image = image_classes[first_threshold].first()
         indices[first_threshold] = first_index + 1 
 
         second_index = indices[second_threshold]
 
-        second_image = image_classes[second_threshold].offset(second_index).first()
+        second_image = image_classes[second_threshold].first()
         while first_image.score == second_image.score:
             second_index += 1
-            second_image = image_classes[second_threshold].offset(second_index).first()
+            second_image = image_classes[second_threshold].first()
         indices[second_threshold] = second_index + 1
         image_pairs.append([first_image, second_image])
 
 
-    mc = pylibmc.Client(["127.0.0.1"], binary=True, behaviors={"tcp_nodelay": True, "ketama": True})
+    mc = pylibmc.Client(["127.0.0.1"], binary=True)
     mc.set(current_uuid + '_images',image_pairs, time=10*60)
 
     return image_pairs
@@ -512,7 +512,7 @@ def get_experimental_condition(subreddit):
         experiment_name = 'experiment_configs_' + subreddit
 
 
-    mc = pylibmc.Client(["127.0.0.1"], binary=True, behaviors={"tcp_nodelay": True, "ketama": True})
+    mc = pylibmc.Client(["127.0.0.1"], binary=True)
     experiment_configs = mc.get(experiment_name)
     if experiment_configs is None:
         experiment_configs = json.load(open('app/experiment_configurations/'+ file_name))

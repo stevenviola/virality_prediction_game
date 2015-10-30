@@ -63,26 +63,49 @@ def add_from_csv(datafile, sample_size=1000):
         insert_into_db(data.url, data.title, data.score, data.id, data.subreddit, data.year, data.month)
 
 def add_from_subreddit(subreddit, sample_size=100):
-    six_months_ago_unix = int( time.time() - 16070400 )
-    two_years_ago_unix = six_months_ago_unix - 48211200
-    period = "%d..%d" % (two_years_ago_unix,six_months_ago_unix)
+    num_processed = 0
+    current_unix = int( time.time() - 16070400 )
+    two_years_ago_unix = current_unix - 48211200
     r = praw.Reddit(user_agent="virality_prediction_game")
-    results = r.search('site:imgur.com', subreddit=subreddit, sort='new', syntax=None, period=period)
-    for x in results:
-        submission_time = datetime.datetime.fromtimestamp(int(x.created_utc))
-        insert_into_db(x.url, x.title, int(x.score), x.id, subreddit, submission_time.year, submission_time.month)
+    last_id = None
+    while num_processed < sample_size:
+        i=0
+        period = "%d..%d" % (two_years_ago_unix,current_unix)
+        results = r.search('site:imgur.com', subreddit=subreddit, sort='new', syntax=None, period=period)
+        for x in results:
+            i+=1
+            submission_time = datetime.datetime.fromtimestamp(int(x.created_utc))
+            if insert_into_db(x.url, x.title, int(x.score), x.id, subreddit, submission_time.year, submission_time.month):
+                num_processed +=1
+                print "Processed %d new posts" % num_processed
+                if i+num_processed >= sample_size:
+                    break
+        current_unix = int(x.created_utc)
+        if x.id==last_id or i==0:
+            print "Unable to add anymore posts. Aborting"
+            break
+        last_id=x.id
 
 def insert_into_db(imgur_url,title,score,id,subreddit,year,month):
-   new_link = check_image(imgur_url)
-   if new_link is not None:
-       print "%s is an invalid link" % imgur_url
-       p = Post(new_link, title, score, id, subreddit, year, month)
-       try:
-           db.session.add(p)
-           db.session.commit()
-       except IntegrityError:
-           print "WOAH! Error adding to the DB. Rolling back"
-           db.session.rollback()
+    if Post.query.filter(Post.reddit_id == id).count() == 0:
+        new_link = check_image(imgur_url)
+        if new_link is not None:
+            p = Post(new_link, title, score, id, subreddit, year, month)
+            try:
+                db.session.add(p)
+                db.session.commit()
+                return True
+            except IntegrityError as e:
+                print "WOAH! Error adding to the DB. Rolling back"
+                print e
+                db.session.rollback()
+                return False
+        else:
+            print "%s is an invalid link" % imgur_url
+            return False
+    else:
+        print "t3_%s is already in the db" % id
+        return False
 
 if __name__=='__main__':
     imgur_client_id     = app.config['IMGUR_ID']
@@ -92,7 +115,7 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Add images to the DB')
     parser.add_argument('--csv',         help='CSV File to be parsed')
     parser.add_argument('--subreddit',   help='Subreddit to be scraped')
-    parser.add_argument('--sample_size', help='How many samples to import', default=100)
+    parser.add_argument('--sample_size', help='How many samples to import', type=int, default=25)
     args = parser.parse_args()
 
     if args.csv is not None:

@@ -80,11 +80,9 @@
               <a href="#" class="dropdown-toggle nav-links" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
               Choose subreddit <span class="caret"></span></a>
                 <ul class="dropdown-menu">
-                  <li><a href="/render_game?article_source=aww" class="menu-links">Aww</a></li>
-                  <li><a href="/render_game?article_source=pics" class="menu-links">Pics</a></li>
-                  <li><a href="/render_game?article_source=funny" class="menu-links">Funny</a></li>
-                  <li><a href="/render_game?article_source=OldSchoolCool" class="menu-links">Old School Cool</a></li>
-
+                  {% for r in subreddits %}
+                    <li><a href="/render_game?article_source={{r}}" class="menu-links">{{r}}</a></li>
+                  {% endfor %}
                 </ul>
               </li>
               <li class='nav-links'><a href='/survey'>Take Survey </a></li>

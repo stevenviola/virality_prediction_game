@@ -171,16 +171,19 @@ def get_current_images(cookies, current_question=None):
 def get_current_subreddit(cookies):
     sub = cookies.get('subreddit')
     if sub is None:
-        return 'aww'
+        return choice(get_distinct_subreddits())
     return sub
 
-
+def get_distinct_subreddits():
+    return db.session.query(Post.subreddit.distinct().label("subreddit")).all()[0]
 
 @predict_game.route('/render_game')
 def start_game():
     sub_param = request.args.get('article_source')
+    all_subreddits = get_distinct_subreddits()
+    if sub_param not in all_subreddits:
+        sub_param = None
     [subreddit, pic_source_url, pic_source_name] = get_subreddit_info(subreddit=sub_param)
-
 
     current_uuid = get_uuid_from_cookie(request.cookies)
     current_score = make_new_score()
@@ -199,7 +202,8 @@ def start_game():
         num_correct = current_score['num_correct'],
         num_wrong = current_score['num_wrong'],
         num_remaining = current_score['num_questions'],
-        num_questions = current_score['num_questions']
+        num_questions = current_score['num_questions'],
+        subreddits = all_subreddits
         )
     )
     
@@ -261,6 +265,7 @@ def end_game():
         median_score=int(mean_score), 
         user_score=current_pct, 
         subreddit=sub_html,
+        subreddits=get_distinct_subreddits(),
         show_peer_scores=show_peer_scores))
 
     # response = make_response(render_template('end_game_thanks.html', 
@@ -543,33 +548,25 @@ def login():
                         )
         db.session.add(s)
         db.session.commit()
-        return render_template('survey_thanks.html')
+        return render_template('survey_thanks.html',
+            subreddits=get_distinct_subreddits()
+        )
 
 
     if request.method == 'GET':
         return render_template('survey.html', 
                                title='Reddit Use',
+                               subreddits=get_distinct_subreddits(),
                                form=form)
 
 
 
 def get_subreddit_info(subreddit=None):
-    subreddits = ['pics','aww','OldSchoolCool','funny']
-
-    if subreddit == 'aww':
-        pic_source_url = "http://www.reddit.com/r/aww"
-        pic_source_name = "reddit.com/r/aww"
-    elif subreddit == 'pics':
-        pic_source_url = "http://www.reddit.com/r/pics"
-        pic_source_name = 'reddit.com/r/pics'
-    elif subreddit == 'OldSchoolCool':
-        pic_source_url = "https://www.reddit.com/r/oldschoolcool"
-        pic_source_name = 'reddit.com/r/oldschoolcool'
-    elif subreddit == 'funny':
-        pic_source_url = 'https://www.reddit.com/r/funny'
-        pic_source_name = 'reddit.com/r/funny'
+    if subreddit is not None:
+        pic_source_url = "http://www.reddit.com/r/%s" % subreddit
+        pic_source_name = "reddit.com/r/%s" % subreddit
     else:
-        random_sub = choice(subreddits)
+        random_sub = choice(get_distinct_subreddits())
         return get_subreddit_info(subreddit=random_sub)
 
     return [subreddit, pic_source_url, pic_source_name]
@@ -585,14 +582,18 @@ def index():
 
 @predict_game.route('/about')
 def about():
-    response = make_response(render_template('about.html'))
+    response = make_response(render_template('about.html',
+        subreddits=get_distinct_subreddits()
+    ))
     return response
 
 
 
 @predict_game.route('/reddit_description')
 def reddit_description():
-    response = make_response(render_template('reddit_description.html'))
+    response = make_response(render_template('reddit_description.html',
+        subreddits=get_distinct_subreddits()
+    ))
     return response
 
 

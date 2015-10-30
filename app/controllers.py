@@ -401,27 +401,8 @@ def update_article_source(current_uuid, article_source):
 
 
 def get_thresholds(current_subreddit):
-
-    if current_subreddit == 'aww':
-        thresholds = [ (0,10),(11,25),(25,75),(75,150), (150, 500), (500, 1000000)]
-        weights = np.array([1.0, 1.0, 2.0, 2.5, 2.5, 2.5])
-        weights /= sum(weights)
-        return thresholds, weights
-
-    if current_subreddit == 'pics':
-        thresholds = [ (0,10),(11,25),(25,75),(75,150), (150, 500), (500, 1000000)]
-        weights = np.array([1.0, 1.0, 2.0, 2.5, 2.5, 2.5])
-        weights /= sum(weights)
-        return thresholds, weights
-
-    if current_subreddit == 'OldSchoolCool':
-        thresholds = [ (0,10),(11,25),(25,75),(75,1000000)]
-        weights = np.array([1.0, 1.0, 2.0, 2.0])
-        weights /= sum(weights)
-        return thresholds, weights
-
-    thresholds = [ (1,10),(11,25),(25,75),(75,150), (150, 500), (500, 1000000)]
-    weights = np.array([1.0, 1.0, 2.0, 2.5, 2.5, 2.5])
+    thresholds = [ (1,1000000)]
+    weights = np.array([1.0])
     weights /= np.sum(weights)
     return thresholds, weights
 
@@ -432,7 +413,7 @@ def setup_images(current_uuid, subreddit, num_questions):
 
     image_classes = []
 
-    query_1 = Post.query.filter(Post.year_posted==2014, Post.subreddit==subreddit)
+    query_1 = Post.query.filter(Post.subreddit==subreddit)
     for t in thresholds:
         temp_images = query_1.filter(Post.score >= t[0], Post.score <= t[1]).order_by(db.func.rand())
         image_classes.append(temp_images)

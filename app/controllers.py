@@ -175,7 +175,10 @@ def get_current_subreddit(cookies):
     return sub
 
 def get_distinct_subreddits():
-    return db.session.query(Post.subreddit.distinct().label("subreddit")).all()[0]
+    ret = []
+    for r in db.session.query(Post.subreddit.distinct().label("subreddit")).all():
+        ret.append(r[0])
+    return ret
 
 @predict_game.route('/render_game')
 def start_game():
